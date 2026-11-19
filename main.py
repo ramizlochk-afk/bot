@@ -4,7 +4,6 @@ from aiogram.filters import CommandStart, CommandObject
 
 
 TOKEN = '9118480138:AAHoLsyeirweKiuHIMmRtcQwbg6EPUTNZRI'
-session = AiohttpSession(proxy='http://127.0.0.1:10808')
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 recipients = {}
