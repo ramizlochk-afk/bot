@@ -33,7 +33,7 @@ cursor.execute('''
 conn.commit()
 
 def save_message_to_db(sender: types.User, target_id: int, is_protected: int) -> int:
-    username = f”@{sender.username}” if sender.username else “скрыт”
+    username = f"@{sender.username}" if sender.username else "скрыт"
     cursor.execute(
         'INSERT INTO messages (sender_id, sender_username, sender_name, target_id, is_protected) VALUES (?, ?, ?, ?, ?)',
         (sender.id, username, sender.full_name, target_id, is_protected)
@@ -110,7 +110,7 @@ async def handle_messages(message: types.Message):
         target_id = waiting_recipient.pop(user_id)
 
         # Создаем временную запись в словаре до выбора кнопки Да/Нет
-        temp_id = f”{user_id}_{message.message_id}”
+        temp_id = f"{user_id}_{message.message_id}"
         pending_messages[temp_id] = {
             'sender': message.from_user,
             'target_id': target_id,
@@ -142,12 +142,12 @@ async def handle_messages(message: types.Message):
             'А если хочешь получить свою ссылку для друзей — нажми /link'
         )
 
-# — ОБРАБОТКА КНОПОК “ДА” И “НЕТ” (ОТПРАВКА С ЗАЩИТОЙ ИЛИ БЕЗ) —
+# — ОБРАБОТКА КНОПОК "ДА" И "НЕТ" (ОТПРАВКА С ЗАЩИТОЙ ИЛИ БЕЗ) —
 @dp.callback_query(F.data.startswith('protect_'))
 async def process_protection_choice(callback: types.CallbackQuery):
     parts = callback.data.split('_')
     choice = parts[1]  # 'yes' или 'no'
-    temp_id = f”{parts[2]}_{parts[3]}”
+    temp_id = f"{parts[2]}_{parts[3]}"
 
     data = pending_messages.get(temp_id)
     if not data:
@@ -180,7 +180,7 @@ async def process_protection_choice(callback: types.CallbackQuery):
         )
         await callback.answer()
 
-# — ОБРАБОТКА КНОПКИ “УЗНАТЬ КТО НАПИСАЛ (99 ₽)” —
+# — ОБРАБОТКА КНОПКИ "УЗНАТЬ КТО НАПИСАЛ (99 ₽)" —
 @dp.callback_query(F.data.startswith('reveal_'))
 async def process_reveal_request(callback: types.CallbackQuery):
     msg_db_id = int(callback.data.split('_')[1])
