@@ -5,9 +5,9 @@ from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, PreCheckoutQuery
 
 # ================= НАСТРОЙКИ =================
-TOKEN = ‘9118480138:AAHoLsyeirweKiuHIMmRtcQwbg6EPUTNZRI’
+TOKEN = "9118480138:AAHoLsyeirweKiuHIMmRtcQwbg6EPUTNZRI"
 # Сюда вставь токен из BotFather -> Payments -> ЮKassa (тестовый или боевой)
-PROVIDER_TOKEN = ‘1122334455’
+PROVIDER_TOKEN = "1122334455"
 # =============================================
 
 bot = Bot(token=TOKEN)
