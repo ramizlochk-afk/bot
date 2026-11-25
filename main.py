@@ -245,19 +245,19 @@ async def process_successful_payment(message: types.Message):
 
         # Проверяем, оплатил ли отправитель защиту за 119 ₽
         if is_protected == 1:
-
-await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
-else:
-if sender_username != 'скрыт':
-await message.answer(f'🕵️‍♂️ Это сообщение отправил(а): {sender_username}')
-else:
-await message.answer(
-f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
-f'Имя: {sender_name}',
-parse_mode='Markdown'
-)
+        await message.answer("😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️")
+    else:
+        if sender_username != "скрыт":
+            await message.answer(f"🕵️‍♂️ Это сообщение отправил(а): {sender_username}")
+        else:
+            await message.answer(
+                f"🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n"
+                f"Имя: [{sender_name}](tg://user?id={sender_id})",
+                parse_mode="Markdown"
+            )
 async def main():
-print('Бот успешно запущен и работает!')
-await dp.start_polling(bot)
-if name == 'main':
-asyncio.run(main())
+    print("Бот успешно запущен и работает!")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
