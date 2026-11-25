@@ -55,7 +55,12 @@ async def send_personal_link(user_id: int):
 async def cmd_start(message: types.Message, command: CommandObject):
     args = command.args
     user_id = message.from_user.id
-
+        # Обычный старт: сначала приветствие, потом ссылка
+        await message.answer(
+            '💞 Добро пожаловать в 🤫 Анонимные вопросы 🤫!\n\n'
+            'Здесь ты можешь узнать, что о тебе думают на самом деле, получить тайные признания или задать каверзный вопрос друзьям, оставаясь в тени.'
+        )
+        await send_personal_link(user_id)
     # Если перешли по чьей-то ссылке
     if args and args.isdigit():
         target_id = int(args)
@@ -69,13 +74,7 @@ async def cmd_start(message: types.Message, command: CommandObject):
             'Напишите текст, отправьте фото, видео, голосовое или кружочек — я передам это получателю.',
             parse_mode='Markdown'
         )
-    else:
-        # Обычный старт: сначала приветствие, потом ссылка
-        await message.answer(
-            '💞 Добро пожаловать в 🤫 Анонимные вопросы 🤫!\n\n'
-            'Здесь ты можешь узнать, что о тебе думают на самом деле, получить тайные признания или задать каверзный вопрос друзьям, оставаясь в тени.'
-        )
-        await send_personal_link(user_id)
+
 
 # — КОМАНДА /link ДЛЯ ПОВТОРНОГО ПОЛУЧЕНИЯ ССЫЛКИ —
 @dp.message(Command('link'))
