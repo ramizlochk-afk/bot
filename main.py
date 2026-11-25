@@ -245,7 +245,7 @@ async def process_successful_payment(message: types.Message):
 
         # Проверяем, оплатил ли отправитель защиту за 119 ₽
         if is_protected == 1:
-        await message.answer("😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️")
+            await message.answer("😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️")
     else:
         if sender_username != "скрыт":
             await message.answer(f"🕵️‍♂️ Это сообщение отправил(а): {sender_username}")
