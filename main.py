@@ -207,7 +207,7 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 # — ДЕЙСТВИЯ ПОСЛЕ УСПЕШНОЙ ОПЛАТЫ —
 @dp.message(F.successful_payment)
 async def process_successful_payment(message: types.Message):
-try:
+    try:
     payload = message.successful_payment.invoice_payload
     
         # 1. Оплачена защита сообщения (119 ₽)
