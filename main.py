@@ -1,4 +1,6 @@
 import asyncio
+import os
+import html
 import sqlite3
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, CommandObject, Command
@@ -18,7 +20,8 @@ waiting_recipient = {}  # {sender_id: target_id}
 pending_messages = {}   # {msg_db_id: {'sender_id': int, 'target_id': int, 'chat_id': int, 'message_id': int}}
 
 # — НАСТРОЙКА БАЗЫ ДАННЫХ (SQLite) —
-conn = sqlite3.connect('bot_database.db')
+os.makedirs('/app/data', exist_ok=True)
+conn = sqlite3.connect('/app/data/bot_database.db')
 cursor = conn.cursor()
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS messages (
@@ -99,7 +102,7 @@ async def deliver_to_target(msg_db_id: int, from_chat_id: int, from_message_id: 
         return False
 
 # — ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ —
-@dp.message()
+@dp.message(~F.successful_payment)
 async def handle_messages(message: types.Message):
     user_id = message.from_user.id
 
@@ -247,11 +250,12 @@ async def process_successful_payment(message: types.Message):
     else:
         if sender_username != "скрыт":
             await message.answer(f"🕵️‍♂️ Это сообщение отправил(а): {sender_username}")
-        else:
+else:
+            safe_name = html.escape(sender_name)
             await message.answer(
-                f"🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n"
-                f"Имя: [{sender_name}](tg://user?id={sender_id})",
-                parse_mode="Markdown"
+                f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
+                f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
+                parse_mode='HTML'
             )
 async def main():
     print("Бот успешно запущен и работает!")
