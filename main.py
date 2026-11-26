@@ -208,7 +208,7 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 @dp.message(F.successful_payment)
 async def process_successful_payment(message: types.Message):
     try:
-        payload = message.successful_payment.invoice_payload
+            payload = message.successful_payment.invoice_payload
         
             # 1. Оплачена защита сообщения (119 ₽)
             if payload.startswith('payprotect_'):
@@ -258,8 +258,8 @@ async def process_successful_payment(message: types.Message):
                             f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
                             parse_mode='HTML'
                         )
-except Exception as e:
-    await message.answer(f'⚠️ Техническая ошибка при выдаче: {e}')
+    except Exception as e:
+        await message.answer(f'⚠️ Техническая ошибка при выдаче: {e}')
             
 async def main():
     print("Бот успешно запущен и работает!")
