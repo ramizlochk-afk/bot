@@ -194,7 +194,7 @@ async def process_reveal_request(callback: types.CallbackQuery):
         payload=f'payreveal_{msg_db_id}',
         provider_token=PROVIDER_TOKEN,
         currency='RUB',
-        prices=[LabeledPrice(label='Раскрытие автора', amount=100)]
+        prices=[LabeledPrice(label='Раскрытие автора', amount=1000)]
     )
     await callback.answer()
 
