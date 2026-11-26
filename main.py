@@ -194,7 +194,7 @@ async def process_reveal_request(callback: types.CallbackQuery):
         payload=f'payreveal_{msg_db_id}',
         provider_token=PROVIDER_TOKEN,
         currency='RUB',
-        prices=[LabeledPrice(label='Раскрытие автора', amount=9900)]
+        prices=[LabeledPrice(label='Раскрытие автора', amount=100)]
     )
     await callback.answer()
 
@@ -208,6 +208,7 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 @dp.message(F.successful_payment)
 async def process_successful_payment(message: types.Message):
     payload = message.successful_payment.invoice_payload
+    await message.answer(f"DEBUG: оплата получена, payload={payload}")
 
     # 1. Оплачена защита сообщения (119 ₽)
     if payload.startswith('payprotect_'):
