@@ -250,7 +250,7 @@ async def process_successful_payment(message: types.Message):
     else:
         if sender_username != "скрыт":
             await message.answer(f"🕵️‍♂️ Это сообщение отправил(а): {sender_username}")
-else:
+        else:
             safe_name = html.escape(sender_name)
             await message.answer(
                 f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
