@@ -208,56 +208,56 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 @dp.message(F.successful_payment)
 async def process_successful_payment(message: types.Message):
     try:
-    payload = message.successful_payment.invoice_payload
-    
-        # 1. Оплачена защита сообщения (119 ₽)
-        if payload.startswith('payprotect_'):
-            temp_id = payload.replace('payprotect_', '')
-            data = pending_messages.pop(temp_id, None)
-    
-            if not data:
-                await message.answer('✅ Оплата прошла, но сообщение уже было отправлено ранее.')
-                return
-    
-            msg_db_id = save_message_to_db(data['sender'], data['target_id'], is_protected=1)
-            success = await deliver_to_target(msg_db_id, data['chat_id'], data['message_id'], data['target_id'])
-    
-            if success:
-                await message.answer(
-                    '✅ **Оплата прошла успешно!**\n\n'
-                    'Ваше сообщение отправлено под полной защитой. Получатель не сможет узнать, кто вы.\n\n'
-                    'Получить свою ссылку: /link',
-                    parse_mode='Markdown'
-                )
-            else:
-                await message.answer('❌ Не удалось доставить сообщение (получатель заблокировал бота).')
-    
-        # 2. Оплачено раскрытие отправителя (99 ₽)
-        elif payload.startswith('payreveal_'):
-            msg_db_id = int(payload.replace('payreveal_', ''))
-    
-            cursor.execute('SELECT sender_id, sender_username, sender_name, is_protected FROM messages WHERE id = ?', (msg_db_id,))
-            row = cursor.fetchone()
-    
-            if not row:
-                await message.answer('❌ Информация об этом сообщении не найдена (возможно, бот перезагружался).')
-                return
-    
-            sender_id, sender_username, sender_name, is_protected = row
-    
-            # Проверяем, оплатил ли отправитель защиту за 119 ₽
-            if is_protected == 1:
-                await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
-            else:
-                if sender_username != "скрыт":
-                    await message.answer(f'🕵️‍♂️ Это сообщение отправил(а): {sender_username}')
-                else:
-                    safe_name = html.escape(sender_name)
+        payload = message.successful_payment.invoice_payload
+        
+            # 1. Оплачена защита сообщения (119 ₽)
+            if payload.startswith('payprotect_'):
+                temp_id = payload.replace('payprotect_', '')
+                data = pending_messages.pop(temp_id, None)
+        
+                if not data:
+                    await message.answer('✅ Оплата прошла, но сообщение уже было отправлено ранее.')
+                    return
+        
+                msg_db_id = save_message_to_db(data['sender'], data['target_id'], is_protected=1)
+                success = await deliver_to_target(msg_db_id, data['chat_id'], data['message_id'], data['target_id'])
+        
+                if success:
                     await message.answer(
-                        f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
-                        f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
-                        parse_mode='HTML'
+                        '✅ **Оплата прошла успешно!**\n\n'
+                        'Ваше сообщение отправлено под полной защитой. Получатель не сможет узнать, кто вы.\n\n'
+                        'Получить свою ссылку: /link',
+                        parse_mode='Markdown'
                     )
+                else:
+                    await message.answer('❌ Не удалось доставить сообщение (получатель заблокировал бота).')
+        
+            # 2. Оплачено раскрытие отправителя (99 ₽)
+            elif payload.startswith('payreveal_'):
+                msg_db_id = int(payload.replace('payreveal_', ''))
+        
+                cursor.execute('SELECT sender_id, sender_username, sender_name, is_protected FROM messages WHERE id = ?', (msg_db_id,))
+                row = cursor.fetchone()
+        
+                if not row:
+                    await message.answer('❌ Информация об этом сообщении не найдена (возможно, бот перезагружался).')
+                    return
+        
+                sender_id, sender_username, sender_name, is_protected = row
+        
+                # Проверяем, оплатил ли отправитель защиту за 119 ₽
+                if is_protected == 1:
+                    await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
+                else:
+                    if sender_username != "скрыт":
+                        await message.answer(f'🕵️‍♂️ Это сообщение отправил(а): {sender_username}')
+                    else:
+                        safe_name = html.escape(sender_name)
+                        await message.answer(
+                            f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
+                            f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
+                            parse_mode='HTML'
+                        )
 except Exception as e:
     await message.answer(f'⚠️ Техническая ошибка при выдаче: {e}')
             
