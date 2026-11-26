@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPri
 # ================= НАСТРОЙКИ =================
 TOKEN = "9118480138:AAHoLsyeirweKiuHIMmRtcQwbg6EPUTNZRI"
 # Сюда вставь токен из BotFather -> Payments -> ЮKassa (тестовый или боевой)
-PROVIDER_TOKEN = "1122334455"
+PROVIDER_TOKEN = "390540012:LIVE:106036"
 # =============================================
 
 bot = Bot(token=TOKEN)
