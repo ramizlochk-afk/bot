@@ -260,7 +260,7 @@ try:
                     )
 except Exception as e:
     await message.answer(f'⚠️ Техническая ошибка при выдаче: {e}')
-            )
+            
 async def main():
     print("Бот успешно запущен и работает!")
     await dp.start_polling(bot)
