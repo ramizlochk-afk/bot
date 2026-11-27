@@ -109,10 +109,11 @@ async def send_personal_link(user_id: int):
     ])
     await bot.send_message(
         user_id,
-        f"🔗 **Твоя личная ссылка для анонимных сообщений:**\n\n"
+        f"🔗 <b>Твоя личная ссылка для анонимных сообщений:</b>\n\n"
         f"{link}\n\n"
         f"Размести её в профиле, сторис или отправь друзьям, чтобы получать тайные признания!",
-        parse_mode="Markdown",
+        parse_mode="HTML",
+
         reply_markup=kb
     )
 
