@@ -8,7 +8,7 @@ from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, PreCheckoutQuery
 
 # ================= НАСТРОЙКИ =================
-BOT_TOKEN = '9118480138:AAGa9b1IekaRdhbWtJv0CtKQTNvOq9mTzY8'
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 PROVIDER_TOKEN = '390540012:LIVE:106036'
 ADMIN_ID = 8263206496
 
