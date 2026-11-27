@@ -20,7 +20,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 # --- БАЗА ДАННЫХ ---
 os.makedirs('/app/data', exist_ok=True)
-conn = sqlite3.connect('/app/data/bot_database.db')
+conn = sqlite3.connect('/app/data/bot_database_v2.db')
 cursor = conn.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS messages (
