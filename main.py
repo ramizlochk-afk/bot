@@ -75,7 +75,7 @@ async def send_personal_link(user_id: int):
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject):
     cursor.execute('INSERT OR IGNORE INTO users (user_id) VALUES (?)', (message.from_user.id,))
-conn.commit()
+    conn.commit()
 
     args = command.args
     user_id = message.from_user.id
