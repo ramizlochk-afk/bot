@@ -245,7 +245,7 @@ async def process_successful_payment(message: types.Message):
         
                 if success:
                     cursor.execute('INSERT INTO payments (user_id, amount, payment_type) VALUES (?, ?, ?)', (message.from_user.id, 119, 'protect'))
-         conn.commit()
+                    conn.commit()
 
                     await message.answer(
                         '✅ **Оплата прошла успешно!**\n\n'
