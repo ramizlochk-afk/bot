@@ -6,7 +6,7 @@ import sqlite3
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart, CommandObject, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, LabeledPrice, PreCheckoutQuery
-================= НАСТРОЙКИ =================
+# ================= НАСТРОЙКИ =================
 BOT_TOKEN = '8415272108:AAH2367P_wG12p1z6Y_7uK2d8x7W1rC7n0M'
 PROVIDER_TOKEN = '390540012:LIVE:106036'
 ADMIN_ID = 8263206496
