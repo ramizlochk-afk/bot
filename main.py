@@ -102,13 +102,15 @@ async def send_personal_link(user_id: int):
     bot_info = await bot.get_me()
     link = f"https://t.me/{bot_info.username}?start={user_id}"
     kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Поделиться ссылкой", switch_inline_query=f"\n💌 Отправь мне анонимное сообщение по ссылке:\n{link}")],
+
         [InlineKeyboardButton(text="💘 Кто в тебя влюблён (Crush-тест)", callback_data="menu_crush")],
         [InlineKeyboardButton(text="📜 Правила сервиса", callback_data="menu_terms")]
     ])
     await bot.send_message(
         user_id,
         f"🔗 **Твоя личная ссылка для анонимных сообщений:**\n\n"
-        f"`{link}`\n\n"
+        f"{link}\n\n"
         f"Размести её в профиле, сторис или отправь друзьям, чтобы получать тайные признания!",
         parse_mode="Markdown",
         reply_markup=kb
