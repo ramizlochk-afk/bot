@@ -123,7 +123,7 @@ async def deliver_to_target(msg_db_id: int, from_chat_id: int, from_message_id: 
         return False
 
 # — ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ —
-@dp.message(~F.successful_payment)
+@dp.message(~F.successful_payment), ~F
 async def handle_messages(message: types.Message):
     user_id = message.from_user.id
 
