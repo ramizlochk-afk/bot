@@ -292,7 +292,7 @@ async def process_successful_payment(message: types.Message):
 async def cmd_admin(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return
-     cursor.execute('SELECT COUNT(*) FROM users')
+    cursor.execute('SELECT COUNT(*) FROM users')
     total_users = cursor.fetchone()[0]
     
     cursor.execute('SELECT COUNT(*) FROM messages')
