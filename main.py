@@ -59,7 +59,7 @@ UNIQUE(user_id, target_username)
 )
 ''')
 conn.commit()
-Временные хранилища состояний
+# Временные хранилища состояний
 user_states = {}       # {user_id: {'mode': 'send'/'reply'/'crush', 'target_id': int}}
 pending_messages = {}  # {temp_id: {...}}
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
