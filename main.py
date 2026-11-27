@@ -11,6 +11,7 @@ TOKEN = "9118480138:AAHoLsyeirweKiuHIMmRtcQwbg6EPUTNZRI"
 # Сюда вставь токен из BotFather -> Payments -> ЮKassa (тестовый или боевой)
 PROVIDER_TOKEN = "390540012:LIVE:106036"
 # =============================================
+ADMIN_ID = 8263206496  # <-- ЗАМЕНИ ЭТИ ЦИФРЫ НА СВОЙ ID
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -32,6 +33,23 @@ cursor.execute('''
         target_id INTEGER,
         is_protected INTEGER DEFAULT 0
     )
+''')
+conn.commit()
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    amount INTEGER,
+    payment_type TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
 ''')
 conn.commit()
 
@@ -56,6 +74,9 @@ async def send_personal_link(user_id: int):
 # — КОМАНДА /start —
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject):
+    cursor.execute('INSERT OR IGNORE INTO users (user_id) VALUES (?)', (message.from_user.id,))
+conn.commit()
+
     args = command.args
     user_id = message.from_user.id
     # Обычный старт: сначала приветствие, потом ссылка
@@ -223,6 +244,9 @@ async def process_successful_payment(message: types.Message):
                 success = await deliver_to_target(msg_db_id, data['chat_id'], data['message_id'], data['target_id'])
         
                 if success:
+                    cursor.execute('INSERT INTO payments (user_id, amount, payment_type) VALUES (?, ?, ?)', (message.from_user.id, 119, 'protect'))
+         conn.commit()
+
                     await message.answer(
                         '✅ **Оплата прошла успешно!**\n\n'
                         'Ваше сообщение отправлено под полной защитой. Получатель не сможет узнать, кто вы.\n\n'
@@ -242,6 +266,9 @@ async def process_successful_payment(message: types.Message):
                 if not row:
                     await message.answer('❌ Информация об этом сообщении не найдена (возможно, бот перезагружался).')
                     return
+                    cursor.execute('INSERT INTO payments (user_id, amount, payment_type) VALUES (?, ?, ?)', (message.from_user.id, 99, 'reveal'))
+                    conn.commit()
+
         
                 sender_id, sender_username, sender_name, is_protected = row
         
@@ -260,7 +287,36 @@ async def process_successful_payment(message: types.Message):
                         )
     except Exception as e:
         await message.answer(f'⚠️ Техническая ошибка при выдаче: {e}')
-            
+# --- АДМИН-ПАНЕЛЬ (ТОЛЬКО ДЛЯ ВЛАДЕЛЬЦА) ---
+@dp.message(Command('admin'))
+async def cmd_admin(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+     cursor.execute('SELECT COUNT(*) FROM users')
+    total_users = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM messages')
+    total_messages = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*), COALESCE(SUM(amount), 0) FROM payments')
+    total_payments_count, total_revenue = cursor.fetchone()
+    
+    cursor.execute("SELECT COUNT(*) FROM payments WHERE payment_type = 'protect'")
+    protect_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM payments WHERE payment_type = 'reveal'")
+    reveal_count = cursor.fetchone()[0]
+    
+    text = (
+        "📊 **Админ-статистика бота**\n\n"
+        f"👥 Всего пользователей: **{total_users}**\n"
+        f"✉️ Отправлено сообщений: **{total_messages}**\n\n"
+        f"💳 Успешных оплат: **{total_payments_count}** (на сумму **{total_revenue} ₽**)\n"
+        f"   • Защита (119 ₽): **{protect_count}**\n"
+        f"   • Раскрытие (99 ₽): **{reveal_count}**"
+    )
+    await message.answer(text, parse_mode='Markdown')
+
 async def main():
     print("Бот успешно запущен и работает!")
     await dp.start_polling(bot)
