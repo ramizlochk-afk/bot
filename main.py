@@ -118,7 +118,7 @@ from_chat_id=from_chat_id,
 message_id=from_message_id,
 reply_markup=kb
 )
-[27.11.2026 15:13] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: return True
+return True
 except Exception:
 return False
 # --- КОМАНДЫ ---
@@ -262,7 +262,7 @@ parse_mode="Markdown",
 reply_markup=kb
 )
 
---- АНОНИМНЫЙ ОТВЕТ ---
+# --- АНОНИМНЫЙ ОТВЕТ ---
 @dp.callback_query(F.data.startswith('reply_'))
 async def process_reply_btn(callback: types.CallbackQuery):
 await callback.answer()
@@ -328,7 +328,7 @@ description="Срочно заблокировать раскрытие ваше
 payload=f"payurgent{msg_db_id}",
 provider_token=PROVIDER_TOKEN,
 currency="RUB",
-[27.11.2026 15:17] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: prices=[LabeledPrice(label="Экстренная защита", amount=PRICE_PROTECT)]
+prices=[LabeledPrice(label="Экстренная защита", amount=PRICE_PROTECT)]
 )
 
 # --- ПОДСКАЗКА ОБ ОТПРАВИТЕЛЕ (89 РУБ.) ---
