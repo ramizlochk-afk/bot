@@ -14,11 +14,11 @@ PRICE_HINT = 8900       # 89 ₽ — Подсказка об отправите�
 PRICE_REVEAL = 9900     # 99 ₽ — Полное раскрытие отправителя
 PRICE_PROTECT = 11900   # 119 ₽ — Защита сообщения
 PRICE_CRUSH = 8900      # 89 ₽ — Проверка взаимной симпатии
-=============================================
+# =============================================
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
---- БАЗА ДАННЫХ ---
+# --- БАЗА ДАННЫХ ---
 os.makedirs('/app/data', exist_ok=True)
 conn = sqlite3.connect('/app/data/bot_database.db')
 cursor = conn.cursor()
@@ -62,7 +62,7 @@ conn.commit()
 Временные хранилища состояний
 user_states = {}       # {user_id: {'mode': 'send'/'reply'/'crush', 'target_id': int}}
 pending_messages = {}  # {temp_id: {...}}
---- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def estimate_reg_year(user_id: int) -> str:
 if user_id < 100000000:
 return "2013–2015 гг. (очень старый аккаунт)"
@@ -121,7 +121,7 @@ reply_markup=kb
 [27.11.2026 15:13] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: return True
 except Exception:
 return False
---- КОМАНДЫ ---
+# --- КОМАНДЫ ---
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject):
 uname = message.from_user.username.lower() if message.from_user.username else None
@@ -162,7 +162,7 @@ parse_mode="Markdown"
 async def cb_terms(callback: types.CallbackQuery):
 await callback.answer()
 await cmd_terms(callback.message)
---- CRUSH-ТЕСТ (ВЗАИМНАЯ СИМПАТИЯ) ---
+# --- CRUSH-ТЕСТ (ВЗАИМНАЯ СИМПАТИЯ) ---
 @dp.callback_query(F.data == "menu_crush")
 async def cb_crush(callback: types.CallbackQuery):
 await callback.answer()
@@ -179,7 +179,7 @@ await callback.message.answer(
     "Если он тоже укажет тебя — мы сразу сообщим о совпадении!",
     parse_mode="Markdown"
 )
---- ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ ---
+# --- ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ ---
 @dp.message(~F.successful_payment, ~F.text.startswith('/'))
 async def handle_messages(message: types.Message):
 user_id = message.from_user.id
@@ -210,7 +210,7 @@ if state.get('mode') == 'crush':
         return
 
     cursor.
-[27.11.2026 15:13] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: execute('INSERT OR IGNORE INTO crushes (user_id, user_username, target_username) VALUES (?, ?, ?)', (user_id, my_uname, target_uname))
+execute('INSERT OR IGNORE INTO crushes (user_id, user_username, target_username) VALUES (?, ?, ?)', (user_id, my_uname, target_uname))
     conn.commit()
     user_states.pop(user_id, None)
 
@@ -226,7 +226,7 @@ if state.get('mode') == 'crush':
         kb_other = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💘 Узнать кто совпал (89 ₽)", callback_data=f"paycrush_{user_id}")]
         ])
-[27.11.2026 15:17] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: await message.answer("🔥 У ТЕБЯ ВЗАИМНАЯ СИМПАТИЯ!\nОдин из указанных тобой людей тоже отметил тебя!", parse_mode="Markdown", reply_markup=kb_me)
+await message.answer("🔥 У ТЕБЯ ВЗАИМНАЯ СИМПАТИЯ!\nОдин из указанных тобой людей тоже отметил тебя!", parse_mode="Markdown", reply_markup=kb_me)
 try:
 await bot.send_message(other_user_id, "🔥 У ТЕБЯ ВЗАИМНАЯ СИМПАТИЯ!\nЧеловек из твоего списка симпатий только что отметил тебя!", parse_mode="Markdown", reply_markup=kb_other)
 except Exception:
@@ -279,7 +279,7 @@ await callback.message.answer(
 parse_mode="Markdown"
 )
 
---- БЕСПЛАТНАЯ ОТПРАВКА ---
+# --- БЕСПЛАТНАЯ ОТПРАВКА ---
 @dp.callback_query(F.data.startswith('free_'))
 async def process_free_send(callback: types.CallbackQuery):
 temp_id = callback.data.replace('free_', '')
@@ -298,7 +298,7 @@ parse_mode="Markdown"
 else:
 await callback.message.edit_text("❌ Не удалось доставить сообщение (возможно, пользователь заблокировал бота).")
 
---- ПЛАТНАЯ ЗАЩИТА (119 РУБ.) ---
+# --- ПЛАТНАЯ ЗАЩИТА (119 РУБ.) ---
 @dp.callback_query(F.data.startswith('protect_'))
 async def process_protect_send(callback: types.CallbackQuery):
 await callback.answer()
@@ -316,7 +316,7 @@ currency="RUB",
 prices=[LabeledPrice(label="Защита сообщения", amount=PRICE_PROTECT)]
 )
 
---- ЭКСТРЕННАЯ ДОПЛАТА ЗАЩИТЫ ПО ПУШУ (119 РУБ.) ---
+# --- ЭКСТРЕННАЯ ДОПЛАТА ЗАЩИТЫ ПО ПУШУ (119 РУБ.) ---
 @dp.callback_query(F.data.startswith('urgentprotect_'))
 async def process_urgent_protect(callback: types.CallbackQuery):
 await callback.answer()
@@ -331,7 +331,7 @@ currency="RUB",
 [27.11.2026 15:17] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: prices=[LabeledPrice(label="Экстренная защита", amount=PRICE_PROTECT)]
 )
 
---- ПОДСКАЗКА ОБ ОТПРАВИТЕЛЕ (89 РУБ.) ---
+# --- ПОДСКАЗКА ОБ ОТПРАВИТЕЛЕ (89 РУБ.) ---
 @dp.callback_query(F.data.startswith('hint_'))
 async def process_hint_request(callback: types.CallbackQuery):
 await callback.answer()
@@ -363,7 +363,7 @@ currency="RUB",
 prices=[LabeledPrice(label="Подсказка об авторе", amount=PRICE_HINT)]
 )
 
---- ПОЛНОЕ РАСКРЫТИЕ ОТПРАВИТЕЛЯ (99 РУБ.) ---
+# --- ПОЛНОЕ РАСКРЫТИЕ ОТПРАВИТЕЛЯ (99 РУБ.) ---
 @dp.callback_query(F.data.startswith('reveal_'))
 async def process_reveal_request(callback: types.CallbackQuery):
 await callback.answer()
@@ -395,7 +395,7 @@ currency="RUB",
 prices=[LabeledPrice(label="Раскрытие отправителя", amount=PRICE_REVEAL)]
 )
 
---- ОПЛАТА CRUSH-ТЕСТА (89 РУБ.) ---
+# --- ОПЛАТА CRUSH-ТЕСТА (89 РУБ.) ---
 @dp.callback_query(F.data.startswith('paycrush_'))
 async def process_crush_pay(callback: types.CallbackQuery):
 await callback.answer()
@@ -410,12 +410,12 @@ currency="RUB",
 prices=[LabeledPrice(label="Открыть взаимную симпатию", amount=PRICE_CRUSH)]
 )
 
---- ПОДТВЕРЖДЕНИЕ ПЕРЕД ОПЛАТОЙ ---
+# --- ПОДТВЕРЖДЕНИЕ ПЕРЕД ОПЛАТОЙ ---
 @dp.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
 await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
---- УСПЕШНАЯ ОПЛАТА ---
+# --- УСПЕШНАЯ ОПЛАТА ---
 @dp.message(F.successful_payment)
 async def process_successful_payment(message: types.Message):
 try:
@@ -435,7 +435,7 @@ conn.commit()
 await message.answer(
 '✅ Оплата прошла успешно!\n\n'
 'Ваше сообщение отправлено под полной защитой. Получатель не сможет узнать, кто вы.\n\n'
-[27.11.2026 15:17] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: 'Получить свою ссылку: /link',
+'Получить свою ссылку: /link',
 parse_mode='Markdown'
 )
 else:
@@ -509,7 +509,7 @@ await message.answer(f'💘 Открыть профиль взаимной си�
 except Exception as e:
 await message.answer(f'⚠️ Техническая ошибка при выдаче: {e}')
 
---- АДМИН-ПАНЕЛЬ (ТОЛЬКО ДЛЯ ВЛАДЕЛЬЦА) ---
+# --- АДМИН-ПАНЕЛЬ (ТОЛЬКО ДЛЯ ВЛАДЕЛЬЦА) ---
 @dp.message(Command('admin'))
 async def cmd_admin(message: types.Message):
 if message.from_user.id != ADMIN_ID:
@@ -523,7 +523,7 @@ total_payments_count, total_revenue = cursor.fetchone()
 cursor.execute("SELECT COUNT(*) FROM payments WHERE payment_type IN ('protect', 'urgent_protect')")
 protect_count = cursor.fetchone()[0]
 cursor.
-[27.11.2026 15:17] أشتاق إلى أيام زمان عندما كانت ابتسامتي صادقة.: execute("SELECT COUNT(*) FROM payments WHERE payment_type = 'reveal'")
+execute("SELECT COUNT(*) FROM payments WHERE payment_type = 'reveal'")
 reveal_count = cursor.fetchone()[0]
 cursor.execute("SELECT COUNT(*) FROM payments WHERE payment_type = 'hint'")
 hint_count = cursor.fetchone()[0]
