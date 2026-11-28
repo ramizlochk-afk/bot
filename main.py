@@ -228,10 +228,7 @@ async def delayed_welcome_message(user_id: int):
     try:
         await bot.send_message(
             user_id,
-            '💌 <b>Новое сообщение от тайного собеседника!</b>
-
-'
-            '👋 Привет! Я твой первый анонимный собеседник. Скорее выложи свою ссылку в сторис или отправь друзьям — уже через пару минут тебе начнут прилетать честные вопросы и признания!',
+            text = '''💌 <b>Новое сообщение от тайного собеседника!</b>\n\n«👋 Привет! Я твой первый анонимный собеседник. Скорее выложи свою ссылку в сторис или отправь друзьям — уже через пару минут тебе начнут прилетать честные вопросы и признания!»''',
             parse_mode='HTML'
         )
     except Exception:
@@ -243,22 +240,15 @@ async def send_personal_link(message: types.Message, user_id: int):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text='💬 Открыть чат-рулетку 1 на 1', web_app=WebAppInfo(url=WEBAPP_URL))],
         [InlineKeyboardButton(text='👑 Купить подписку PRO', callback_data='menu_vip')],
-        [InlineKeyboardButton(text='📤 Поделиться ссылкой', switch_inline_query=f'
+        [InlineKeyboardButton(text='📤 Поделиться ссылкой', switch_inline_query=f'''
 💌 Отправь мне анонимное сообщение по ссылке:
-{link}')],
+{link}''')],
         [InlineKeyboardButton(text='💘 Кто в тебя влюблён (Crush-тест)', callback_data='menu_crush')],
         [InlineKeyboardButton(text='📜 Правила сервиса', callback_data='menu_terms')]
     ])
     await message.answer(
-        f'👋 <b>Добро пожаловать!</b> Хочешь пообщаться анонимно 1 на 1 в мини-приложении? Нажми кнопку ниже (если передумаешь — всегда можно открыть его командой /chat).
+        f'👋 <b>Добро пожаловать!</b> Хочешь пообщаться анонимно 1 на 1 в мини-приложении? Нажми кнопку ниже (если передумаешь — всегда можно открыть его командой /chat).\n\n🔗 <b>Твоя личная ссылка для анонимных сообщений:</b>\n\n{link}\n\nРазмести её в профиле или сторис, чтобы получать тайные признания!',
 
-'
-        f'🔗 <b>Твоя личная ссылка для анонимных сообщений:</b>
-'
-        f'{link}
-
-'
-        f'Размести её в профиле или сторис, чтобы получать тайные признания!',
         parse_mode='HTML',
         reply_markup=kb
     )
