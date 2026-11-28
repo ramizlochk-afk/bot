@@ -78,32 +78,24 @@ CREATE TABLE IF NOT EXISTS unlocked_messages (
 conn.commit()
 
 # Временные хранилища состояний
-user_states = {}       # {user_id: {'mode': 'send'/'reply'/'crush', 'target_id': int, 'is_reply': bool}}
+user_states = {}       # {user_id: {'mode': 'send'/'reply'/'crush', 'target_id': int}}
 pending_messages = {}  # {temp_id: {...}}
 
 # --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def estimate_reg_year(user_id: int) -> str:
     if user_id < 100000000:
         return "2013–2015 гг. (очень старый аккаунт)"
-    elif user_id < 500000000:
+    if user_id < 500000000:
         return "2016–2018 гг."
-    elif user_id < 1200000000:
+    if user_id < 1200000000:
         return "2019–2020 гг."
-    elif user_id < 5000000000:
+    if user_id < 5000000000:
         return "2021–2022 гг."
-    elif user_id < 7000000000:
+    if user_id < 7000000000:
         return "2023–2024 гг."
-    else:
-        return "2025–2026 гг. (свежий аккаунт)"
+    return "2025–2026 гг. (свежий аккаунт)"
 
-def is_dialog_protected(sender_id: int, target_id: int) -> bool:
-    cursor.execute(
-        'SELECT 1 FROM messages WHERE sender_id = ? AND target_id = ? AND is_protected = 1 LIMIT 1',
-        (sender_id, target_id)
-    )
-    return cursor.fetchone() is not None
-
-def is_message_protected(msg_db_id: int) -> bool:
+def is_message_or_dialog_protected(msg_db_id: int) -> bool:
     cursor.execute('SELECT sender_id, target_id, is_protected FROM messages WHERE id = ?', (msg_db_id,))
     row = cursor.fetchone()
     if not row:
@@ -111,14 +103,30 @@ def is_message_protected(msg_db_id: int) -> bool:
     sender_id, target_id, is_protected = row
     if is_protected == 1:
         return True
-    return is_dialog_protected(sender_id, target_id)
+    cursor.execute(
+        'SELECT 1 FROM messages WHERE sender_id = ? AND target_id = ? AND is_protected = 1 LIMIT 1',
+        (sender_id, target_id)
+    )
+    return cursor.fetchone() is not None
+
+def is_already_unlocked(user_id: int, msg_db_id: int, unlock_type: str) -> bool:
+    cursor.execute(
+        'SELECT 1 FROM unlocked_messages WHERE user_id = ? AND msg_id = ? AND unlock_type = ? LIMIT 1',
+        (user_id, msg_db_id, unlock_type)
+    )
+    return cursor.fetchone() is not None
 
 def save_message_to_db(sender: types.User, target_id: int, is_protected: int = 0) -> int:
     username = f"@{sender.username}" if sender.username else "скрыт"
     full_name = sender.full_name or "Без имени"
     lang = sender.language_code or "неизвестен"
-    if is_protected == 0 and is_dialog_protected(sender.id, target_id):
-        is_protected = 1
+    if is_protected == 0:
+        cursor.execute(
+            'SELECT 1 FROM messages WHERE sender_id = ? AND target_id = ? AND is_protected = 1 LIMIT 1',
+            (sender.id, target_id)
+        )
+        if cursor.fetchone():
+            is_protected = 1
     cursor.execute(
         'INSERT INTO messages (sender_id, sender_username, sender_name, sender_lang, target_id, is_protected) VALUES (?, ?, ?, ?, ?, ?)',
         (sender.id, username, full_name, lang, target_id, is_protected)
@@ -126,17 +134,22 @@ def save_message_to_db(sender: types.User, target_id: int, is_protected: int = 0
     conn.commit()
     return cursor.lastrowid
 
-def format_hint_text(sender_id: int, sender_username: str, sender_name: str, sender_lang: str) -> str:
-    first_letter = sender_name[0].upper() if sender_name else "?"
-    has_uname = "есть (@username установлен)" if sender_username != "скрыт" else "скрыт"
-    reg_year = estimate_reg_year(sender_id)
-    return (
-        f"🔍 **Подсказка об отправителе:**\n\n"
-        f"• Первая буква имени: **{first_letter}**\n"
-        f"• Публичный юзернейм: **{has_uname}**\n"
-        f"• Язык приложения: **{sender_lang}**\n"
-        f"• Регистрация аккаунта: **{reg_year}**"
-    )
+async def send_delayed_welcome_anon(user_id: int):
+    await asyncio.sleep(120)
+    cursor.execute('SELECT 1 FROM messages WHERE target_id = ? LIMIT 1', (user_id,))
+    if cursor.fetchone():
+        return
+    try:
+        await bot.send_message(
+            user_id,
+            "💌 <b>Тебе пришло первое анонимное сообщение!</b>\n\n"
+            "«👋 Привет! Я твой первый тайный собеседник. Скорее выложи свою ссылку в сторис или отправь друзьям — "
+            "уже через пару минут тебе начнут прилетать честные вопросы и признания!»\n\n"
+            "🔗 Нажми /link, чтобы скопировать свою ссылку.",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
 async def send_personal_link(user_id: int):
     bot_info = await bot.get_me()
@@ -179,27 +192,35 @@ async def deliver_to_target(msg_db_id: int, from_chat_id: int, from_message_id: 
 # --- КОМАНДЫ ---
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject):
+    user_id = message.from_user.id
     uname = message.from_user.username.lower() if message.from_user.username else None
-    cursor.execute('INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)', (message.from_user.id, uname))
+
+    cursor.execute('SELECT 1 FROM users WHERE user_id = ? LIMIT 1', (user_id,))
+    is_new_user = cursor.fetchone() is None
+
+    cursor.execute('INSERT OR REPLACE INTO users (user_id, username) VALUES (?, ?)', (user_id, uname))
     conn.commit()
+
+    if is_new_user:
+        asyncio.create_task(send_delayed_welcome_anon(user_id))
 
     args = command.args
     if args and args.isdigit():
         target_id = int(args)
-        if target_id == message.from_user.id:
+        if target_id == user_id:
             await message.answer("😅 Нельзя отправить анонимное сообщение самому себе!\nВот твоя ссылка для друзей:")
-            await send_personal_link(message.from_user.id)
+            await send_personal_link(user_id)
             return
 
-        user_states[message.from_user.id] = {'mode': 'send', 'target_id': target_id, 'is_reply': False}
+        user_states[user_id] = {'mode': 'send', 'target_id': target_id, 'is_reply': False}
         await message.answer(
             "✍️ **Напиши сообщение для этого пользователя!**\n\n"
             "Можно отправить текст, фото, видео, голосовое или стикер. Оно будет доставлено полностью анонимно.",
             parse_mode="Markdown"
         )
     else:
-        user_states.pop(message.from_user.id, None)
-        await send_personal_link(message.from_user.id)
+        user_states.pop(user_id, None)
+        await send_personal_link(user_id)
 
 @dp.message(Command('link'))
 async def cmd_link(message: types.Message):
@@ -212,7 +233,7 @@ async def cmd_terms(message: types.Message):
         "• Отправка и ответ на анонимные сообщения бесплатны.\n"
         "• **Подсказка (89 ₽):** предоставляет косвенные данные об отправителе (первая буква имени, наличие @username, язык и примерный год регистрации).\n"
         "• **Раскрытие автора (99 ₽):** показывает @username или ссылку на профиль отправителя, если им не была активирована защита.\n"
-        "• **Защита сообщения (119 ₽):** гарантирует конфиденциальность отправителя во всём диалоге с получателем. Если сообщение защищено, оплата раскрытия блокируется до списания средств.\n\n"
+        "• **Защита сообщения (119 ₽):** гарантирует полную конфиденциальность отправителя в диалоге. Если сообщение уже защищено, средства за попытку раскрытия не списываются.\n\n"
         "Поддержка: @ramych1",
         parse_mode="Markdown"
     )
@@ -272,10 +293,7 @@ async def handle_messages(message: types.Message):
             await message.answer("😅 Укажи `@username` другого человека, а не свой собственный!", parse_mode="Markdown")
             return
 
-        cursor.execute(
-            'INSERT OR IGNORE INTO crushes (user_id, user_username, target_username) VALUES (?, ?, ?)',
-            (user_id, my_uname, target_uname)
-        )
+        cursor.execute('INSERT OR IGNORE INTO crushes (user_id, user_username, target_username) VALUES (?, ?, ?)', (user_id, my_uname, target_uname))
         conn.commit()
         user_states.pop(user_id, None)
 
@@ -307,16 +325,22 @@ async def handle_messages(message: types.Message):
     target_id = state['target_id']
     is_reply = state.get('is_reply', False)
     temp_id = f"{user_id}_{message.message_id}"
-    user_states.pop(user_id, None)
 
-    # Если диалог уже защищён ранее, отправляем сразу под защитой без повторной оплаты
-    if is_dialog_protected(user_id, target_id):
+    cursor.execute(
+        'SELECT 1 FROM messages WHERE sender_id = ? AND target_id = ? AND is_protected = 1 LIMIT 1',
+        (user_id, target_id)
+    )
+    already_protected_dialog = cursor.fetchone() is not None
+
+    if already_protected_dialog:
+        user_states.pop(user_id, None)
         msg_db_id = save_message_to_db(message.from_user, target_id, is_protected=1)
         success = await deliver_to_target(msg_db_id, message.chat.id, message.message_id, target_id, is_reply)
         if success:
             await message.answer(
-                "✅ **Сообщение доставлено анонимно!**\n\n"
-                "🛡 Защита от раскрытия в этом диалоге уже активна автоматически.",
+                "✅ **Сообщение доставлено под вашей активной защитой!**\n"
+                "Повторно оплачивать защиту в этом диалоге не нужно.\n\n"
+                "Получить свою ссылку: /link",
                 parse_mode="Markdown"
             )
         else:
@@ -330,6 +354,7 @@ async def handle_messages(message: types.Message):
         'target_id': target_id,
         'is_reply': is_reply
     }
+    user_states.pop(user_id, None)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🛡 Да, защитить (119 ₽)", callback_data=f"protect_{temp_id}")],
@@ -396,7 +421,7 @@ async def process_protect_send(callback: types.CallbackQuery):
     await bot.send_invoice(
         chat_id=callback.from_user.id,
         title="🛡 Защита анонимности",
-        description="Гарантированное скрытие вашего профиля от функции раскрытия отправителя во всём диалоге.",
+        description="Гарантированное скрытие вашего профиля от функции раскрытия отправителя.",
         payload=f"payprotect_{temp_id}",
         provider_token=PROVIDER_TOKEN,
         currency="RUB",
@@ -407,10 +432,9 @@ async def process_protect_send(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith('urgentprotect_'))
 async def process_urgent_protect(callback: types.CallbackQuery):
     msg_db_id = int(callback.data.split('_')[1])
-    if is_message_protected(msg_db_id):
-        await callback.answer("🛡 Защита на этот диалог уже активирована!", show_alert=True)
+    if is_message_or_dialog_protected(msg_db_id):
+        await callback.answer("🛡 Защита для этого диалога уже активирована!", show_alert=True)
         return
-
     await callback.answer()
     await bot.send_invoice(
         chat_id=callback.from_user.id,
@@ -426,39 +450,43 @@ async def process_urgent_protect(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith('hint_'))
 async def process_hint_request(callback: types.CallbackQuery):
     msg_db_id = int(callback.data.split('_')[1])
-    cursor.execute('SELECT sender_id, sender_username, sender_name, sender_lang, target_id, is_protected FROM messages WHERE id = ?', (msg_db_id,))
-    row = cursor.fetchone()
 
-    if not row:
-        await callback.answer("❌ Сообщение не найдено.", show_alert=True)
+    if is_message_or_dialog_protected(msg_db_id):
+        await callback.answer("😶‍🌫️ Отправитель защитил это сообщение. Оплата не требуется — профиль скрыт.", show_alert=True)
         return
 
-    sender_id, sender_username, sender_name, sender_lang, target_id, is_protected = row
-
-    # Проверяем, не оплачено ли уже ранее
-    cursor.execute('SELECT 1 FROM unlocked_messages WHERE user_id = ? AND msg_id = ? AND unlock_type = ?', (callback.from_user.id, msg_db_id, 'hint'))
-    if cursor.fetchone():
+    if is_already_unlocked(callback.from_user.id, msg_db_id, 'hint'):
         await callback.answer()
-        await callback.message.answer(format_hint_text(sender_id, sender_username, sender_name, sender_lang), parse_mode='Markdown')
-        return
-
-    # Если сообщение защищено — не выставляем счёт и не списываем деньги
-    if is_protected == 1 or is_dialog_protected(sender_id, target_id):
-        await callback.answer("😶‍🌫️ Это сообщение находится под защитой конфиденциальности. Оплата не требуется.", show_alert=True)
+        cursor.execute('SELECT sender_id, sender_username, sender_name, sender_lang FROM messages WHERE id = ?', (msg_db_id,))
+        row = cursor.fetchone()
+        if row:
+            sender_id, sender_username, sender_name, sender_lang = row
+            first_letter = sender_name[0].upper() if sender_name else "?"
+            has_uname = "есть (@username установлен)" if sender_username != "скрыт" else "скрыт"
+            reg_year = estimate_reg_year(sender_id)
+            await callback.message.answer(
+                f"🔍 **Подсказка об отправителе (уже оплачена):**\n\n"
+                f"• Первая буква имени: **{first_letter}**\n"
+                f"• Публичный юзернейм: **{has_uname}**\n"
+                f"• Язык приложения: **{sender_lang}**\n"
+                f"• Регистрация аккаунта: **{reg_year}**",
+                parse_mode="Markdown"
+            )
         return
 
     await callback.answer()
 
-    # Триггер-пуш отправителю
-    if sender_id != callback.from_user.id:
+    cursor.execute('SELECT sender_id FROM messages WHERE id = ?', (msg_db_id,))
+    row = cursor.fetchone()
+    if row and row[0] != callback.from_user.id:
         kb_push = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🛡 Экстренно защитить (119 ₽)", callback_data=f"urgentprotect_{msg_db_id}")]
         ])
         try:
             await bot.send_message(
-                sender_id,
+                row[0],
                 "⚠️ **Внимание!** Получатель прямо сейчас запросил подсказку о том, кто написал ему сообщение!\n"
-                "Успей поставить защиту, пока он не оплатил раскрытие 👇",
+                "Успей поставить защиту за 119 ₽, пока он не оплатил раскрытие 👇",
                 parse_mode="Markdown",
                 reply_markup=kb_push
             )
@@ -479,45 +507,39 @@ async def process_hint_request(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith('reveal_'))
 async def process_reveal_request(callback: types.CallbackQuery):
     msg_db_id = int(callback.data.split('_')[1])
-    cursor.execute('SELECT sender_id, sender_username, sender_name, target_id, is_protected FROM messages WHERE id = ?', (msg_db_id,))
-    row = cursor.fetchone()
 
-    if not row:
-        await callback.answer("❌ Сообщение не найдено.", show_alert=True)
+    if is_message_or_dialog_protected(msg_db_id):
+        await callback.answer("😶‍🌫️ Отправитель защитил это сообщение. Оплата не требуется — профиль скрыт.", show_alert=True)
         return
 
-    sender_id, sender_username, sender_name, target_id, is_protected = row
-
-    # Проверяем, не оплачено ли уже ранее
-    cursor.execute('SELECT 1 FROM unlocked_messages WHERE user_id = ? AND msg_id = ? AND unlock_type = ?', (callback.from_user.id, msg_db_id, 'reveal'))
-    if cursor.fetchone():
+    if is_already_unlocked(callback.from_user.id, msg_db_id, 'reveal'):
         await callback.answer()
-        if sender_username != "скрыт":
-            await callback.message.answer(f'🕵️‍♂️ Это сообщение отправил(а): {sender_username}')
-        else:
-            safe_name = html.escape(sender_name)
-            await callback.message.answer(
-                f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
-                f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
-                parse_mode='HTML'
-            )
-        return
-
-    # Если сообщение защищено — не выставляем счёт и не списываем деньги
-    if is_protected == 1 or is_dialog_protected(sender_id, target_id):
-        await callback.answer("😶‍🌫️ Это сообщение находится под защитой конфиденциальности. Оплата не требуется.", show_alert=True)
+        cursor.execute('SELECT sender_id, sender_username, sender_name FROM messages WHERE id = ?', (msg_db_id,))
+        row = cursor.fetchone()
+        if row:
+            sender_id, sender_username, sender_name = row
+            if sender_username != "скрыт":
+                await callback.message.answer(f'🕵️‍♂️ Это сообщение отправил(а) (уже оплачено): {sender_username}')
+            else:
+                safe_name = html.escape(sender_name)
+                await callback.message.answer(
+                    f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
+                    f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
+                    parse_mode='HTML'
+                )
         return
 
     await callback.answer()
 
-    # Триггер-пуш отправителю
-    if sender_id != callback.from_user.id:
+    cursor.execute('SELECT sender_id FROM messages WHERE id = ?', (msg_db_id,))
+    row = cursor.fetchone()
+    if row and row[0] != callback.from_user.id:
         kb_push = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🛡 Экстренно защитить (119 ₽)", callback_data=f"urgentprotect_{msg_db_id}")]
         ])
         try:
             await bot.send_message(
-                sender_id,
+                row[0],
                 "🚨 **Тревога!** Получатель прямо сейчас нажал «Узнать кто написал»!\n"
                 "Успей включить защиту за 119 ₽, чтобы твой @username не раскрылся 👇",
                 parse_mode="Markdown",
@@ -529,7 +551,7 @@ async def process_reveal_request(callback: types.CallbackQuery):
     await bot.send_invoice(
         chat_id=callback.from_user.id,
         title="🕵️‍♂️ Раскрытие отправителя",
-        description="Получение @username или прямой ссылки на профиль автора сообщения.",
+        description="Проверка статуса и получение @username автора сообщения.",
         payload=f"payreveal_{msg_db_id}",
         provider_token=PROVIDER_TOKEN,
         currency="RUB",
@@ -551,15 +573,17 @@ async def process_crush_pay(callback: types.CallbackQuery):
         prices=[LabeledPrice(label="Открыть взаимную симпатию", amount=PRICE_CRUSH)]
     )
 
-# --- ЖЁСТКАЯ ПРОВЕРКА ПЕРЕД СПИСАНИЕМ С КАРТЫ ---
+# --- ЖЁСТКАЯ ПРОВЕРКА ПЕРЕД СПИСАНИЕМ СРЕДСТВ ---
 @dp.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
     payload = pre_checkout_query.invoice_payload
+    user_id = pre_checkout_query.from_user.id
 
-    # Блокируем списание средств, если отправитель успел защитить сообщение до момента оплаты
     if payload.startswith('payhint_') or payload.startswith('payreveal_'):
         msg_db_id = int(payload.split('_')[1])
-        if is_message_protected(msg_db_id):
+        unlock_type = 'hint' if payload.startswith('payhint_') else 'reveal'
+
+        if is_message_or_dialog_protected(msg_db_id):
             await bot.answer_pre_checkout_query(
                 pre_checkout_query.id,
                 ok=False,
@@ -567,13 +591,31 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
             )
             return
 
-    if payload.startswith('payprotect_'):
+        if is_already_unlocked(user_id, msg_db_id, unlock_type):
+            await bot.answer_pre_checkout_query(
+                pre_checkout_query.id,
+                ok=False,
+                error_message="Вы уже оплатили эту услугу для данного сообщения! Оплата отменена."
+            )
+            return
+
+    elif payload.startswith('payurgent_'):
+        msg_db_id = int(payload.split('_')[1])
+        if is_message_or_dialog_protected(msg_db_id):
+            await bot.answer_pre_checkout_query(
+                pre_checkout_query.id,
+                ok=False,
+                error_message="Защита для этого диалога уже активирована! Повторная оплата отменена."
+            )
+            return
+
+    elif payload.startswith('payprotect_'):
         temp_id = payload.replace('payprotect_', '')
         if temp_id not in pending_messages:
             await bot.answer_pre_checkout_query(
                 pre_checkout_query.id,
                 ok=False,
-                error_message="Это сообщение уже было отправлено ранее. Оплата отменена, средства не списаны."
+                error_message="Время ожидания истекло или сообщение уже отправлено. Оплата отменена."
             )
             return
 
@@ -600,7 +642,6 @@ async def process_successful_payment(message: types.Message):
                 (data['sender'].id, data['target_id'])
             )
             conn.commit()
-
             success = await deliver_to_target(msg_db_id, data['chat_id'], data['message_id'], data['target_id'], data.get('is_reply', False))
 
             if success:
@@ -608,7 +649,7 @@ async def process_successful_payment(message: types.Message):
                 conn.commit()
                 await message.answer(
                     '✅ **Оплата прошла успешно!**\n\n'
-                    'Ваше сообщение отправлено под полной защитой. Получатель не сможет узнать, кто вы во всём диалоге.\n\n'
+                    'Ваше сообщение и весь дальнейший диалог с этим получателем находятся под полной защитой. Получатель не сможет узнать, кто вы.\n\n'
                     'Получить свою ссылку: /link',
                     parse_mode='Markdown'
                 )
@@ -619,65 +660,75 @@ async def process_successful_payment(message: types.Message):
         elif payload.startswith('payurgent_'):
             msg_db_id = int(payload.replace('payurgent_', ''))
             cursor.execute('SELECT sender_id, target_id FROM messages WHERE id = ?', (msg_db_id,))
-            row = cursor.fetchone()
-            if row:
-                sender_id, target_id = row
-                cursor.execute('UPDATE messages SET is_protected = 1 WHERE sender_id = ? AND target_id = ?', (sender_id, target_id))
+            pair = cursor.fetchone()
+            if pair:
+                cursor.execute(
+                    'UPDATE messages SET is_protected = 1 WHERE sender_id = ? AND target_id = ?',
+                    (pair[0], pair[1])
+                )
             else:
                 cursor.execute('UPDATE messages SET is_protected = 1 WHERE id = ?', (msg_db_id,))
             cursor.execute('INSERT INTO payments (user_id, amount, payment_type) VALUES (?, ?, ?)', (message.from_user.id, 119, 'urgent_protect'))
             conn.commit()
-            await message.answer('🛡 **Защита активирована!** Теперь весь ваш диалог с этим получателем закрыт — он не сможет оплатить раскрытие.', parse_mode='Markdown')
+            await message.answer('🛡 **Защита активирована!** Теперь даже если получатель попытается оплатить раскрытие, списание заблокируется, а ваш профиль останется в тайне.', parse_mode='Markdown')
 
         # 3. Оплачена подсказка (89 ₽)
         elif payload.startswith('payhint_'):
             msg_db_id = int(payload.replace('payhint_', ''))
-            cursor.execute('SELECT sender_id, sender_username, sender_name, sender_lang, target_id, is_protected FROM messages WHERE id = ?', (msg_db_id,))
+            cursor.execute('SELECT sender_id, sender_username, sender_name, sender_lang FROM messages WHERE id = ?', (msg_db_id,))
             row = cursor.fetchone()
 
             if not row:
                 await message.answer('❌ Информация об этом сообщении не найдена.')
-                return
-
-            sender_id, sender_username, sender_name, sender_lang, target_id, is_protected = row
-            if is_protected == 1 or is_dialog_protected(sender_id, target_id):
-                await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
                 return
 
             cursor.execute('INSERT INTO payments (user_id, amount, payment_type) VALUES (?, ?, ?)', (message.from_user.id, 89, 'hint'))
             cursor.execute('INSERT OR IGNORE INTO unlocked_messages (user_id, msg_id, unlock_type) VALUES (?, ?, ?)', (message.from_user.id, msg_db_id, 'hint'))
             conn.commit()
 
-            await message.answer(format_hint_text(sender_id, sender_username, sender_name, sender_lang), parse_mode='Markdown')
+            sender_id, sender_username, sender_name, sender_lang = row
+            if is_message_or_dialog_protected(msg_db_id):
+                await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
+            else:
+                first_letter = sender_name[0].upper() if sender_name else "?"
+                has_uname = "есть (@username установлен)" if sender_username != "скрыт" else "скрыт"
+                reg_year = estimate_reg_year(sender_id)
+                await message.answer(
+                    f"🔍 **Подсказка об отправителе:**\n\n"
+                    f"• Первая буква имени: **{first_letter}**\n"
+                    f"• Публичный юзернейм: **{has_uname}**\n"
+                    f"• Язык приложения: **{sender_lang}**\n"
+                    f"• Регистрация аккаунта: **{reg_year}**",
+                    parse_mode="Markdown"
+                )
 
         # 4. Оплачено полное раскрытие отправителя (99 ₽)
         elif payload.startswith('payreveal_'):
             msg_db_id = int(payload.replace('payreveal_', ''))
-            cursor.execute('SELECT sender_id, sender_username, sender_name, target_id, is_protected FROM messages WHERE id = ?', (msg_db_id,))
+            cursor.execute('SELECT sender_id, sender_username, sender_name FROM messages WHERE id = ?', (msg_db_id,))
             row = cursor.fetchone()
 
             if not row:
                 await message.answer('❌ Информация об этом сообщении не найдена.')
                 return
 
-            sender_id, sender_username, sender_name, target_id, is_protected = row
-            if is_protected == 1 or is_dialog_protected(sender_id, target_id):
-                await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
-                return
-
             cursor.execute('INSERT INTO payments (user_id, amount, payment_type) VALUES (?, ?, ?)', (message.from_user.id, 99, 'reveal'))
             cursor.execute('INSERT OR IGNORE INTO unlocked_messages (user_id, msg_id, unlock_type) VALUES (?, ?, ?)', (message.from_user.id, msg_db_id, 'reveal'))
             conn.commit()
 
-            if sender_username != "скрыт":
-                await message.answer(f'🕵️‍♂️ Это сообщение отправил(а): {sender_username}')
+            sender_id, sender_username, sender_name = row
+            if is_message_or_dialog_protected(msg_db_id):
+                await message.answer('😶‍🌫️ Извините, сообщение оплачено и считается конфиденциальным 😶‍🌫️')
             else:
-                safe_name = html.escape(sender_name)
-                await message.answer(
-                    f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
-                    f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
-                    parse_mode='HTML'
-                )
+                if sender_username != "скрыт":
+                    await message.answer(f'🕵️‍♂️ Это сообщение отправил(а): {sender_username}')
+                else:
+                    safe_name = html.escape(sender_name)
+                    await message.answer(
+                        f'🕵️‍♂️ У отправителя скрыт @username, но вот его профиль:\n'
+                        f'Имя: <a href="tg://user?id={sender_id}">{safe_name}</a>',
+                        parse_mode='HTML'
+                    )
 
         # 5. Оплачен Crush-тест (89 ₽)
         elif payload.startswith('crushdone_'):
