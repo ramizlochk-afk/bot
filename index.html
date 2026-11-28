@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Анонимный Чат 1 на 1</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #050a06;
+    --card: #0c160e;
+    --card-border: #19331f;
+    --neon: #00ff66;
+    --neon-dim: rgba(0, 255, 102, 0.14);
+    --neon-glow: 0 0 18px rgba(0, 255, 102, 0.35);
+    --text: #eafff0;
+    --muted: #7da688;
+    --danger: #ff4757;
+    --gold: #ffd32a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  body { background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  .header {
+    padding: 14px 16px; background: rgba(12, 22, 14, 0.95); border-bottom: 1px solid var(--card-border);
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  .badge {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--neon-dim);
+    border: 1px solid rgba(0, 255, 102, 0.35); color: var(--neon); font-weight: 600; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--neon); box-shadow: var(--neon-glow); }
+  .status-pill {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px; background: #102014; border: 1px solid var(--card-border); color: var(--muted);
+  }
+  .status-pill.pro { color: var(--gold); border-color: rgba(255, 211, 42, 0.45); background: rgba(255, 211, 42, 0.1); font-weight: 700; }
+
+  .screen { flex: 1; display: none; flex-direction: column; padding: 16px; overflow-y: auto; }
+  .screen.active { display: flex; }
+
+  .hero {
+    background: radial-gradient(circle at top right, rgba(0, 255, 102, 0.16), transparent 60%), var(--card);
+    border: 1px solid var(--card-border); border-radius: 20px; padding: 22px 18px; margin-bottom: 14px;
+  }
+  .hero h1 { font-size: 22px; margin-bottom: 8px; letter-spacing: -0.3px; }
+  .hero p { font-size: 14px; color: var(--muted); line-height: 1.45; margin-bottom: 18px; }
+
+  .btn {
+    width: 100%; border: none; border-radius: 14px; padding: 15px 16px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: 0.15s transform, 0.15s opacity; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--neon); color: #031408; box-shadow: var(--neon-glow); }
+  .btn-outline { background: var(--card); color: var(--text); border: 1px solid var(--card-border); margin-top: 10px; }
+  .btn-trial {
+    background: linear-gradient(135deg, rgba(0, 255, 102, 0.18), rgba(0, 200, 120, 0.08));
+    color: var(--neon); border: 1px dashed var(--neon); margin-top: 10px;
+  }
+  .btn-danger { background: rgba(255, 71, 87, 0.15); color: var(--danger); border: 1px solid rgba(255, 71, 87, 0.4); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; padding: 16px; margin-top: 12px;
+  }
+  .tariff {
+    display: flex; justify-content: space-between; align-items: center; padding: 14px;
+    background: #08110a; border: 1px solid var(--card-border); border-radius: 14px; margin-top: 10px; cursor: pointer;
+  }
+  .tariff:hover { border-color: var(--neon); }
+  .tariff-title { font-weight: 700; font-size: 15px; }
+  .tariff-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .tariff-price { font-weight: 800; color: var(--neon); font-size: 16px; }
+
+  .chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
+  .msg {
+    max-width: 80%; padding: 11px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word;
+  }
+  .msg.me { align-self: flex-end; background: var(--neon); color: #031408; font-weight: 500; border-bottom-right-radius: 4px; }
+  .msg.peer { align-self: flex-start; background: var(--card); border: 1px solid var(--card-border); border-bottom-left-radius: 4px; }
+  .msg.sys { align-self: center; background: transparent; color: var(--muted); font-size: 12px; text-align: center; }
+
+  .chat-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+  .chat-controls .btn { padding: 10px; font-size: 13px; border-radius: 12px; }
+  .input-row { display: flex; gap: 8px; }
+  .input-row input {
+    flex: 1; background: var(--card); border: 1px solid var(--card-border); border-radius: 14px;
+    padding: 13px 14px; color: var(--text); font-size: 15px; outline: none;
+  }
+  .input-row input:focus { border-color: var(--neon); }
+  .send-btn {
+    background: var(--neon); color: #031408; border: none; border-radius: 14px; padding: 0 18px; font-weight: 800; cursor: pointer;
+  }
+  .loader {
+    width: 48px; height: 48px; border: 3px solid var(--card-border); border-top-color: var(--neon);
+    border-radius: 50%; animation: spin 0.9s linear infinite; margin: 24px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="badge"><span class="dot"></span> Онлайн: <span id="onlineCount">1</span></div>
+  <div class="status-pill" id="quotaBadge">Загрузка...</div>
+</div>
+
+<!-- Главный экран -->
+<div class="screen active" id="homeScreen">
+  <div class="hero">
+    <h1>Анонимный чат 1 на 1</h1>
+    <p>Мгновенный поиск случайного собеседника без имён и аватарок. Без подписки доступно <b>20 диалогов</b> в сутки.</p>
+    <button class="btn btn-primary" onclick="startSearch()">⚡ Найти собеседника</button>
+    <button class="btn btn-trial" id="trialBtn" style="display:none;" onclick="activateTrial()">🎁 Попробовать 3 дня бесплатно</button>
+    <button class="btn btn-outline" onclick="openSubModal()">👑 Купить подписку PRO</button>
+  </div>
+
+  <div class="card" id="limitNotice" style="display:none; border-color: rgba(255, 71, 87, 0.5);">
+    <div style="font-weight:700; color: var(--danger); margin-bottom:6px;">⏳ Дневной лимит 20/20 исчерпан</div>
+    <div style="font-size:13px; color: var(--muted); line-height:1.4;">
+      Следующие бесплатные диалоги откроются через <b id="resetTimer" style="color:var(--text);">24:00:00</b>. Оформите подписку PRO, чтобы общаться без ограничений прямо сейчас.
+    </div>
+  </div>
+</div>
+
+<!-- Экран поиска -->
+<div class="screen" id="searchScreen" style="justify-content:center; text-align:center;">
+  <div class="hero">
+    <div class="loader"></div>
+    <h2 style="margin-bottom:8px;">Ищем собеседника...</h2>
+    <p>Подбираем свободного участника в сети. Обычно это занимает пару секунд.</p>
+    <button class="btn btn-danger" onclick="cancelSearch()">Отменить поиск</button>
+  </div>
+</div>
+
+<!-- Экран диалога -->
+<div class="screen" id="chatScreen">
+  <div class="chat-controls">
+    <button class="btn btn-outline" style="margin-top:0;" onclick="nextPeer()">⏭ Следующий</button>
+    <button class="btn btn-danger" onclick="stopChat()">🛑 Завершить</button>
+  </div>
+  <div class="chat-box" id="chatBox"></div>
+  <div class="input-row">
+    <input type="text" id="msgInput" placeholder="Напишите сообщение..." maxlength="1000" onkeydown="if(event.key==='Enter') sendMsg()">
+    <button class="send-btn" onclick="sendMsg()">➤</button>
+  </div>
+</div>
+
+<!-- Экран подписок -->
+<div class="screen" id="subScreen">
+  <div class="hero">
+    <h1>👑 Подписка PRO</h1>
+    <p>Снимите ограничение в 20 собеседников за 24 часа и общайтесь в чат-рулетке без лимитов.</p>
+
+    <div class="tariff" onclick="buySub('1m')">
+      <div>
+        <div class="tariff-title">1 месяц PRO</div>
+        <div class="tariff-sub">Безлимитные диалоги на 30 дней</div>
+      </div>
+      <div class="tariff-price">199 ₽</div>
+    </div>
+
+    <div class="tariff" onclick="buySub('6m')">
+      <div>
+        <div class="tariff-title">6 месяцев PRO 🔥</div>
+        <div class="tariff-sub">Выгода 58% • 180 дней безлимита</div>
+      </div>
+      <div class="tariff-price">499 ₽</div>
+    </div>
+
+    <div class="tariff" onclick="buySub('1y')">
+      <div>
+        <div class="tariff-title">1 год PRO 💎</div>
+        <div class="tariff-sub">Максимум выгоды • 365 дней безлимита</div>
+      </div>
+      <div class="tariff-price">799 ₽</div>
+    </div>
+
+    <button class="btn btn-outline" onclick="showScreen('homeScreen')">← Назад</button>
+  </div>
+</div>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor('#050a06');
+    tg.setBackgroundColor('#050a06');
+  }
+
+  const user = tg?.initDataUnsafe?.user || { id: Math.floor(100000 + Math.random() * 900000) };
+  const userId = user.id;
+  let ws = null;
+  let resetSeconds = 0;
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  function openSubModal() { showScreen('subScreen'); }
+
+  function updateStatusUI(data) {
+    if (data.online !== undefined) {
+      document.getElementById('onlineCount').textContent = data.online;
+    }
+    const badge = document.getElementById('quotaBadge');
+    const trialBtn = document.getElementById('trialBtn');
+    const limitNotice = document.getElementById('limitNotice');
+
+    if (data.is_pro) {
+      badge.textContent = '👑 PRO активен';
+      badge.classList.add('pro');
+      trialBtn.style.display = 'none';
+      limitNotice.style.display = 'none';
+    } else {
+      badge.classList.remove('pro');
+      const left = Math.max(0, 20 - (data.used || 0));
+      badge.textContent = `Бесплатно: ${left}/20`;
+      trialBtn.style.display = data.trial_used ? 'none' : 'flex';
+      if (left === 0 && data.reset_in > 0) {
+        limitNotice.style.display = 'block';
+        resetSeconds = data.reset_in;
+      } else {
+        limitNotice.style.display = 'none';
+      }
+    }
+  }
+
+  setInterval(() => {
+    if (resetSeconds > 0) {
+      resetSeconds--;
+      const h = String(Math.floor(resetSeconds / 3600)).padStart(2, '0');
+      const m = String(Math.floor((resetSeconds % 3600) / 60)).padStart(2, '0');
+      const s = String(resetSeconds % 60).padStart(2, '0');
+      document.getElementById('resetTimer').textContent = `${h}:${m}:${s}`;
+    }
+  }, 1000);
+
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws?user_id=${userId}`);
+
+    ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data);
+      if (data.type === 'status') {
+        updateStatusUI(data);
+      } else if (data.type === 'waiting') {
+        showScreen('searchScreen');
+      } else if (data.type === 'matched') {
+        document.getElementById('chatBox').innerHTML = '';
+        addSysMsg('🔒 Собеседник найден! Поздоровайтесь.');
+        showScreen('chatScreen');
+      } else if (data.type === 'msg') {
+        addMsg(data.text, 'peer');
+      } else if (data.type === 'peer_left') {
+        addSysMsg('⚠️ Собеседник завершил диалог.');
+      } else if (data.type === 'limit_reached') {
+        updateStatusUI(data);
+        showScreen('homeScreen');
+        openSubModal();
+      } else if (data.type === 'invoice_sent') {
+        if (tg) {
+          tg.showAlert('💳 Счёт на оплату отправлен вам в чат с ботом! После оплаты подписка активируется автоматически.');
+          tg.close();
+        } else {
+          alert('Счёт отправлен в чат с ботом.');
+        }
+      }
+    };
+
+    ws.onclose = () => setTimeout(connectWS, 2000);
+  }
+
+  function startSearch() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action: 'find' }));
+  }
+
+  function cancelSearch() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action: 'cancel' }));
+    showScreen('homeScreen');
+  }
+
+  function nextPeer() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action: 'next' }));
+  }
+
+  function stopChat() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action: 'stop' }));
+    showScreen('homeScreen');
+  }
+
+  function sendMsg() {
+    const inp = document.getElementById('msgInput');
+    const txt = inp.value.trim();
+    if (!txt || !ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({ action: 'msg', text: txt }));
+    addMsg(txt, 'me');
+    inp.value = '';
+  }
+
+  function addMsg(text, who) {
+    const box = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.className = `msg ${who}`;
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function addSysMsg(text) {
+    const box = document.getElementById('chatBox');
+    const div = document.createElement('div');
+    div.className = 'msg sys';
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function activateTrial() {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action: 'trial' }));
+  }
+
+  function buySub(plan) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({ action: 'buy_sub', plan }));
+  }
+
+  connectWS();
+</script>
+</body>
+</html>
